@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>GambleLimit</title>
+<style>
+:root{--bg:#F2F2F7;--surface:#fff;--text:#000;--sub:#8A8A8E;--sep:#C6C6C8;--accent:#007AFF;--red:#FF3B30;--track:#E5E5EA;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--surface:#1C1C1E;--text:#fff;--sub:#8E8E93;--sep:#38383A;--accent:#0A84FF;--red:#FF453A;--track:#2C2C2E;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#000;--surface:#1C1C1E;--text:#fff;--sub:#8E8E93;--sep:#38383A;--accent:#0A84FF;--red:#FF453A;--track:#2C2C2E;color-scheme:dark}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+#app{max-width:520px;margin:0 auto;padding:0 16px 48px}
+button{font:inherit;color:var(--accent);background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+.bar{display:flex;justify-content:space-between;align-items:center;height:52px}
+.bar svg{width:24px;height:24px;stroke:var(--accent);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+h1{font-size:34px;line-height:1.2;letter-spacing:.2px;margin:4px 0 20px;font-weight:700}
+.big{font-size:56px;font-weight:700;letter-spacing:-1px;font-variant-numeric:tabular-nums;line-height:1.1}
+.big.over{color:var(--red)}
+.sub{color:var(--sub);font-size:15px}
+.prog{height:4px;border-radius:2px;background:var(--track);margin:16px 0 10px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent);border-radius:2px;transition:width .3s}
+.prog.over i{background:var(--red)}
+.meta{display:flex;justify-content:space-between;font-size:15px;color:var(--sub);font-variant-numeric:tabular-nums}
+.head{font-size:13px;color:var(--sub);text-transform:none;margin:32px 16px 6px}
+.list{background:var(--surface);border-radius:12px;overflow:hidden}
+.row{display:flex;justify-content:space-between;align-items:center;width:100%;padding:12px 16px;min-height:48px;color:var(--text);text-align:left;position:relative}
+.row+.row::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.row .l{display:flex;flex-direction:column}
+.row .s{font-size:13px;color:var(--sub)}
+.row .v{font-variant-numeric:tabular-nums}
+.empty{padding:20px 16px;color:var(--sub);text-align:center;font-size:15px}
+.primary{display:block;width:100%;background:var(--accent);color:#fff;border-radius:14px;padding:15px;font-weight:600;margin-top:24px}
+.primary:disabled{opacity:.4;cursor:default}
+.foot{font-size:13px;color:var(--sub);margin:8px 16px 0}
+.dim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:20;display:none}
+.dim.on{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:30;max-width:520px;margin:0 auto;background:var(--bg);border-radius:12px 12px 0 0;padding:0 16px calc(24px + env(safe-area-inset-bottom,0px));max-height:92%;overflow:auto;transform:translateY(105%);transition:transform .3s cubic-bezier(.2,.8,.2,1);visibility:hidden}
+.sheet.on{transform:none;visibility:visible}
+.sheet .bar{height:56px}
+.sheet h2{font-size:17px;margin:0;font-weight:600;position:absolute;left:0;right:0;text-align:center;pointer-events:none}
+.sheet .bar{position:relative}
+.sheet .bar button{position:relative;z-index:1}
+.sheet .bar .done{font-weight:600}
+.field{display:flex;align-items:center;padding:0 16px;background:var(--surface);border-radius:12px;height:56px;gap:6px}
+.field span{font-size:22px;color:var(--sub)}
+.field input{flex:1;border:0;background:none;color:var(--text);font:inherit;font-size:22px;font-variant-numeric:tabular-nums;min-width:0;outline:none}
+.err{color:var(--red);font-size:13px;margin:8px 16px 0;min-height:16px}
+.del{color:var(--red);text-align:center;justify-content:center}
+.alert{position:fixed;z-index:40;left:50%;top:50%;transform:translate(-50%,-50%);width:min(270px,86vw);background:var(--surface);border-radius:14px;text-align:center;display:none;overflow:hidden}
+.alert.on{display:block}
+.alert .t{padding:18px 16px 14px}
+.alert b{display:block;font-size:17px;margin-bottom:4px}
+.alert p{margin:0;font-size:13px}
+.alert .a{display:flex;border-top:.5px solid var(--sep)}
+.alert .a button{flex:1;padding:13px 0}
+.alert .a button+button{border-left:.5px solid var(--sep);font-weight:600}
+@media (prefers-reduced-motion:reduce){.sheet,.prog i{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="dim" id="dim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div class="alert" id="alert" role="alertdialog"></div>
+<script>
+(function(){
+var KEY="gamblelimit.v1",LOC=navigator.language||"en-GB";
+var fmt=new Intl.NumberFormat(LOC,{style:"currency",currency:"EUR"});
+var S=load(),sheet=null,editing=null;
+function load(){try{var r=localStorage.getItem(KEY);if(r){var d=JSON.parse(r);if(d&&d.limits)return d}}catch(e){}return{limits:{},pending:null,entries:[],setup:false}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function ym(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
+function nextYm(m){var p=m.split("-").map(Number);return p[1]===12?(p[0]+1)+"-01":p[0]+"-"+String(p[1]+1).padStart(2,"0")}
+function monthStart(m){var p=m.split("-").map(Number);return new Date(p[0],p[1]-1,1)}
+function money(c){return fmt.format(c/100)}
+function limitFor(m){
+ if(S.limits[m]!=null)return S.limits[m];
+ var best=null;Object.keys(S.limits).forEach(function(k){if(k<m&&(best==null||k>best))best=k});
+ return best?S.limits[best]:null}
+function roll(){
+ var cur=ym(new Date());
+ if(S.pending&&S.pending.month<=cur){S.limits[S.pending.month]=S.pending.cents;S.pending=null;save()}
+ if(S.setup&&S.limits[cur]==null){S.limits[cur]=limitFor(cur);save()}
+ return cur}
+function parse(v){
+ v=String(v).trim().replace(/\s/g,"");if(!v)return{e:"Enter an amount."};
+ var c=v.lastIndexOf(","),d=v.lastIndexOf("."),sep=Math.max(c,d);
+ if(sep>-1){var ip=v.slice(0,sep).replace(/[.,]/g,""),fp=v.slice(sep+1);v=ip+"."+fp}
+ if(!/^\d*\.?\d+$|^\d+\.?$/.test(v))return{e:"Enter a valid amount, like 0.10."};
+ if(/\.\d{3,}$/.test(v))return{e:"Use at most two decimals."};
+ var n=Math.round(parseFloat(v)*100);
+ if(!(n>0))return{e:"Amount must be greater than zero."};
+ if(n>1e9)return{e:"That amount is too large."};
+ return{c:n}}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var MON=new Intl.DateTimeFormat(LOC,{month:"long",year:"numeric"}),DAY=new Intl.DateTimeFormat(LOC,{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}),LONG=new Intl.DateTimeFormat(LOC,{day:"numeric",month:"long",year:"numeric"});
+
+function render(){
+ var cur=roll(),app=document.getElementById("app");
+ if(!S.setup){app.innerHTML='<div class="bar"></div><h1>GambleLimit</h1>';openSetup();return}
+ var lim=limitFor(cur),es=S.entries.filter(function(e){return ym(new Date(e.ts))===cur}).sort(function(a,b){return b.ts-a.ts});
+ var spent=es.reduce(function(s,e){return s+e.cents},0),left=lim-spent,over=left<0;
+ var pct=lim>0?Math.min(100,spent/lim*100):100;
+ var h='<div class="bar"><span></span><button id="gear" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>';
+ h+='<h1>This month</h1>';
+ h+='<div class="big'+(over?' over':'')+'">'+money(Math.abs(left))+'</div>';
+ h+='<div class="sub">'+(left===0?"Limit reached":over?"over limit":"remaining")+'</div>';
+ h+='<div class="prog'+(over||left===0?' over':'')+'" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(pct)+'"><i style="width:'+pct+'%"></i></div>';
+ h+='<div class="meta"><span>'+money(spent)+' of '+money(lim)+' spent</span><span>Resets '+LONG.format(monthStart(nextYm(cur)))+'</span></div>';
+ h+='<div class="head">Spending</div><div class="list">';
+ if(!es.length)h+='<div class="empty">Nothing logged this month.</div>';
+ es.forEach(function(e){h+='<button class="row" data-id="'+e.id+'"><span class="l"><span>Spending</span><span class="s">'+DAY.format(new Date(e.ts))+'</span></span><span class="v">\u2212'+money(e.cents)+'</span></button>'});
+ h+='</div><button class="primary" id="log">Log spending</button>';
+ app.innerHTML=h;
+ document.getElementById("gear").onclick=openSettings;
+ document.getElementById("log").onclick=function(){openEntry(null)};
+ Array.prototype.forEach.call(app.querySelectorAll(".row"),function(b){b.onclick=function(){openEntry(b.dataset.id)}});
+ if(sheet==="settings")openSettings(true);
+}
+
+function show(html,name){var s=document.getElementById("sheet");s.innerHTML=html;sheet=name;
+ document.getElementById("dim").classList.add("on");
+ requestAnimationFrame(function(){s.classList.add("on");var i=s.querySelector("input");if(i)try{i.focus({preventScroll:true})}catch(e){}})}
+function close(){var s=document.getElementById("sheet");s.classList.remove("on");document.getElementById("dim").classList.remove("on");sheet=null;editing=null;
+ if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()}
+document.getElementById("dim").onclick=function(){if(sheet!=="setup")close()};
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&sheet&&sheet!=="setup"){hideAlert();close()}});
+
+function amountSheet(title,cancel,done,val,note){
+ return '<div class="bar"><button id="cx">'+cancel+'</button><h2>'+title+'</h2><button class="done" id="ok">'+done+'</button></div>'+
+ '<div class="field"><span>\u20AC</span><input id="amt" inputmode="decimal" autocomplete="off" placeholder="0.00" value="'+esc(val||"")+'" aria-label="Amount in euros"></div><div class="err" id="err" role="alert"></div>'+(note?'<div class="foot" style="margin-top:0">'+note+'</div>':'')}
+function wire(onOk){var i=document.getElementById("amt");
+ function go(){var r=parse(i.value);if(r.e){document.getElementById("err").textContent=r.e;return}onOk(r.c)}
+ document.getElementById("ok").onclick=go;i.onkeydown=function(e){if(e.key==="Enter")go()};i.oninput=function(){document.getElementById("err").textContent=""}}
+
+function openSetup(){
+ show(amountSheet("Monthly limit","","Start","5.00","Choose the most you\u2019re willing to spend on gambling each month. Your allowance resets in full on the 1st of every month. Unused money doesn\u2019t carry over. This stays on your device and can\u2019t block payments.").replace('<button id="cx"></button>','<span></span>'),"setup");
+ wire(function(c){S.setup=true;S.limits[ym(new Date())]=c;save();close();render()})}
+
+function openEntry(id){
+ var e=id?S.entries.filter(function(x){return x.id===id})[0]:null;editing=e;
+ var v=e?(e.cents/100).toFixed(2):"";
+ var h=amountSheet(e?"Edit spending":"Log spending","Cancel",e?"Save":"Add",v);
+ if(e)h+='<div class="list" style="margin-top:24px"><button class="row del" id="rm">Delete entry</button></div>';
+ show(h,"entry");
+ document.getElementById("cx").onclick=close;
+ if(e)document.getElementById("rm").onclick=function(){S.entries=S.entries.filter(function(x){return x.id!==e.id});save();close();render()};
+ wire(function(c){if(e){e.cents=c}else{S.entries.push({id:String(Date.now())+Math.random().toString(36).slice(2,6),cents:c,ts:Date.now()})}save();close();render()})}
+
+function openSettings(keep){
+ var cur=ym(new Date()),h='<div class="bar"><span></span><h2>Settings</h2><button class="done" id="dn">Done</button></div>';
+ h+='<div class="list"><div class="row"><span>This month\u2019s limit</span><span class="v sub">'+money(limitFor(cur))+'</span></div>';
+ if(S.pending)h+='<div class="row"><span class="l"><span>Next limit</span><span class="s">From '+LONG.format(monthStart(S.pending.month))+'</span></span><span class="v sub">'+money(S.pending.cents)+'</span></div>';
+ h+='<button class="row" id="chg"><span>Change monthly limit</span><span class="sub">\u203A</span></button></div>';
+ if(S.pending)h+='<div class="list" style="margin-top:16px"><button class="row del" id="cp" style="color:var(--accent)">Cancel pending change</button></div>';
+ h+='<div class="foot">Changes take effect at the start of next month.</div>';
+ if(keep===true&&sheet==="settings"){document.getElementById("sheet").innerHTML=h}else show(h,"settings");
+ document.getElementById("dn").onclick=close;document.getElementById("chg").onclick=openChange;
+ var cp=document.getElementById("cp");if(cp)cp.onclick=function(){S.pending=null;save();openSettings(true)}}
+
+function openChange(){
+ show(amountSheet("Change limit","Back","Review","","This applies from "+LONG.format(monthStart(nextYm(ym(new Date()))))+". It won\u2019t change this month\u2019s allowance."),"change");
+ document.getElementById("cx").onclick=function(){openSettings()};
+ wire(function(c){confirmChange(c)})}
+
+function hideAlert(){document.getElementById("alert").classList.remove("on")}
+function confirmChange(c){
+ var nm=nextYm(ym(new Date())),a=document.getElementById("alert");
+ a.innerHTML='<div class="t"><b>Change limit to '+money(c)+'?</b><p>Starting '+LONG.format(monthStart(nm))+', your monthly limit will be '+money(c)+'. This month stays the same.</p></div><div class="a"><button id="an">Cancel</button><button id="ay">Confirm</button></div>';
+ a.classList.add("on");
+ document.getElementById("an").onclick=hideAlert;
+ document.getElementById("ay").onclick=function(){hideAlert();S.pending={month:nm,cents:c};save();openSettings()}}
+
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&!sheet)render()});
+window.addEventListener("focus",function(){if(!sheet)render()});
+setInterval(function(){if(!sheet&&ym(new Date())!==lastYm){render()}},30000);
+var lastYm=ym(new Date());
+var _r=render;render=function(){lastYm=ym(new Date());_r()};
+render();
+})();
+</script>
+</body>
+</html>
