@@ -6,10 +6,10 @@
 <meta name="color-scheme" content="light dark">
 <title>GambleLimit</title>
 <style>
-:root{--bg:#F2F2F7;--surface:#fff;--text:#000;--sub:#8A8A8E;--sep:#C6C6C8;--accent:#007AFF;--red:#FF3B30;--track:#E5E5EA;color-scheme:light;
+:root{--bg:#FF3B30;--surface:#fff;--text:#000;--sub:#8A8A8E;--sep:#C6C6C8;--accent:#007AFF;--red:#FF3B30;--track:#E5E5EA;color-scheme:light;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--surface:#1C1C1E;--text:#fff;--sub:#8E8E93;--sep:#38383A;--accent:#0A84FF;--red:#FF453A;--track:#2C2C2E;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#000;--surface:#1C1C1E;--text:#fff;--sub:#8E8E93;--sep:#38383A;--accent:#0A84FF;--red:#FF453A;--track:#2C2C2E;color-scheme:dark}
+:root[data-theme="dark"]{--bg:#FF3B30;--surface:#1C1C1E;--text:#fff;--sub:#8E8E93;--sep:#38383A;--accent:#0A84FF;--red:#FF453A;--track:#2C2C2E;color-scheme:dark}
 html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
@@ -37,6 +37,9 @@ h1{font-size:34px;line-height:1.2;letter-spacing:.2px;margin:4px 0 20px;font-wei
 .empty{padding:20px 16px;color:var(--sub);text-align:center;font-size:15px}
 .primary{display:block;width:100%;background:var(--accent);color:#fff;border-radius:14px;padding:15px;font-weight:600;margin-top:24px}
 .primary:disabled{opacity:.4;cursor:default}
+.quick{display:flex;gap:10px;margin-top:16px}
+.quick button{flex:1;background:var(--surface);border-radius:12px;padding:13px 8px;font-variant-numeric:tabular-nums}
+.quick+.primary{margin-top:10px}
 .foot{font-size:13px;color:var(--sub);margin:8px 16px 0}
 .dim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:20;display:none}
 .dim.on{display:block}
@@ -70,22 +73,20 @@ h1{font-size:34px;line-height:1.2;letter-spacing:.2px;margin:4px 0 20px;font-wei
 <div class="alert" id="alert" role="alertdialog"></div>
 <script>
 (function(){
-var KEY="gamblelimit.v1",LOC=navigator.language||"en-GB";
+var KEY="gamblelimit.v2",LOC=navigator.language||"en-GB";
 var fmt=new Intl.NumberFormat(LOC,{style:"currency",currency:"EUR"});
 var S=load(),sheet=null,editing=null;
-function load(){try{var r=localStorage.getItem(KEY);if(r){var d=JSON.parse(r);if(d&&d.limits)return d}}catch(e){}return{limits:{},pending:null,entries:[],setup:false}}
+function load(){try{var r=localStorage.getItem(KEY);if(r){var d=JSON.parse(r);if(d&&d.limits)return d}}catch(e){}return{limits:{},pending:null,entries:[],setup:false,anchor:0}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
-function ym(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
-function nextYm(m){var p=m.split("-").map(Number);return p[1]===12?(p[0]+1)+"-01":p[0]+"-"+String(p[1]+1).padStart(2,"0")}
-function monthStart(m){var p=m.split("-").map(Number);return new Date(p[0],p[1]-1,1)}
+function addM(a,n){var d=new Date(a),day=d.getDate(),r=new Date(d.getFullYear(),d.getMonth()+n,1,d.getHours(),d.getMinutes(),d.getSeconds());r.setDate(Math.min(day,new Date(r.getFullYear(),r.getMonth()+1,0).getDate()));return r}
+function idx(ts){var a=new Date(S.anchor),t=new Date(ts),n=(t.getFullYear()-a.getFullYear())*12+t.getMonth()-a.getMonth();if(n<0)n=0;while(n>0&&addM(S.anchor,n).getTime()>ts)n--;while(addM(S.anchor,n+1).getTime()<=ts)n++;return n}
+function pStart(n){return addM(S.anchor,n)}
 function money(c){return fmt.format(c/100)}
-function limitFor(m){
- if(S.limits[m]!=null)return S.limits[m];
- var best=null;Object.keys(S.limits).forEach(function(k){if(k<m&&(best==null||k>best))best=k});
- return best?S.limits[best]:null}
+function limitFor(n){if(S.limits[n]!=null)return S.limits[n];var b=-1;Object.keys(S.limits).forEach(function(k){k=Number(k);if(k<n&&k>b)b=k});return b>=0?S.limits[b]:null}
 function roll(){
- var cur=ym(new Date());
- if(S.pending&&S.pending.month<=cur){S.limits[S.pending.month]=S.pending.cents;S.pending=null;save()}
+ if(!S.setup)return 0;
+ var cur=idx(Date.now());
+ if(S.pending&&S.pending.period<=cur){S.limits[S.pending.period]=S.pending.cents;S.pending=null;save()}
  if(S.setup&&S.limits[cur]==null){S.limits[cur]=limitFor(cur);save()}
  return cur}
 function parse(v){
@@ -104,7 +105,7 @@ var MON=new Intl.DateTimeFormat(LOC,{month:"long",year:"numeric"}),DAY=new Intl.
 function render(){
  var cur=roll(),app=document.getElementById("app");
  if(!S.setup){app.innerHTML='<div class="bar"></div><h1>GambleLimit</h1>';openSetup();return}
- var lim=limitFor(cur),es=S.entries.filter(function(e){return ym(new Date(e.ts))===cur}).sort(function(a,b){return b.ts-a.ts});
+ var lim=limitFor(cur),es=S.entries.filter(function(e){return idx(e.ts)===cur}).sort(function(a,b){return b.ts-a.ts});
  var spent=es.reduce(function(s,e){return s+e.cents},0),left=lim-spent,over=left<0;
  var pct=lim>0?Math.min(100,spent/lim*100):100;
  var h='<div class="bar"><span></span><button id="gear" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>';
@@ -112,14 +113,18 @@ function render(){
  h+='<div class="big'+(over?' over':'')+'">'+money(Math.abs(left))+'</div>';
  h+='<div class="sub">'+(left===0?"Limit reached":over?"over limit":"remaining")+'</div>';
  h+='<div class="prog'+(over||left===0?' over':'')+'" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(pct)+'"><i style="width:'+pct+'%"></i></div>';
- h+='<div class="meta"><span>'+money(spent)+' of '+money(lim)+' spent</span><span>Resets '+LONG.format(monthStart(nextYm(cur)))+'</span></div>';
+ h+='<div class="meta"><span>'+money(spent)+' of '+money(lim)+' spent</span><span>Resets '+LONG.format(pStart(cur+1))+'</span></div>';
  h+='<div class="head">Spending</div><div class="list">';
  if(!es.length)h+='<div class="empty">Nothing logged this month.</div>';
  es.forEach(function(e){h+='<button class="row" data-id="'+e.id+'"><span class="l"><span>Spending</span><span class="s">'+DAY.format(new Date(e.ts))+'</span></span><span class="v">\u2212'+money(e.cents)+'</span></button>'});
- h+='</div><button class="primary" id="log">Log spending</button>';
+ h+='</div>';
+ var seen=[];S.entries.slice().sort(function(a,b){return b.ts-a.ts}).forEach(function(e){if(seen.length<2&&seen.indexOf(e.cents)<0)seen.push(e.cents)});
+ if(seen.length){h+='<div class="quick">';seen.forEach(function(c){h+='<button class="q" data-c="'+c+'" aria-label="Log '+money(c)+' again">\u2212'+money(c)+'</button>'});h+='</div>'}
+ h+='<button class="primary" id="log">Log spending</button>';
  app.innerHTML=h;
  document.getElementById("gear").onclick=openSettings;
  document.getElementById("log").onclick=function(){openEntry(null)};
+ Array.prototype.forEach.call(app.querySelectorAll(".q"),function(b){b.onclick=function(){S.entries.push({id:String(Date.now())+Math.random().toString(36).slice(2,6),cents:Number(b.dataset.c),ts:Date.now()});save();render()}});
  Array.prototype.forEach.call(app.querySelectorAll(".row"),function(b){b.onclick=function(){openEntry(b.dataset.id)}});
  if(sheet==="settings")openSettings(true);
 }
@@ -140,8 +145,8 @@ function wire(onOk){var i=document.getElementById("amt");
  document.getElementById("ok").onclick=go;i.onkeydown=function(e){if(e.key==="Enter")go()};i.oninput=function(){document.getElementById("err").textContent=""}}
 
 function openSetup(){
- show(amountSheet("Monthly limit","","Start","5.00","Choose the most you\u2019re willing to spend on gambling each month. Your allowance resets in full on the 1st of every month. Unused money doesn\u2019t carry over. This stays on your device and can\u2019t block payments.").replace('<button id="cx"></button>','<span></span>'),"setup");
- wire(function(c){S.setup=true;S.limits[ym(new Date())]=c;save();close();render()})}
+ show(amountSheet("Monthly limit","","Start","5.00","Choose the most you\u2019re willing to spend on gambling each month. Your allowance resets in full one month after you start, and every month after that. Unused money doesn\u2019t carry over. This stays on your device and can\u2019t block payments.").replace('<button id="cx"></button>','<span></span>'),"setup");
+ wire(function(c){S.setup=true;S.anchor=Date.now();S.limits[0]=c;save();close();render()})}
 
 function openEntry(id){
  var e=id?S.entries.filter(function(x){return x.id===id})[0]:null;editing=e;
@@ -154,34 +159,35 @@ function openEntry(id){
  wire(function(c){if(e){e.cents=c}else{S.entries.push({id:String(Date.now())+Math.random().toString(36).slice(2,6),cents:c,ts:Date.now()})}save();close();render()})}
 
 function openSettings(keep){
- var cur=ym(new Date()),h='<div class="bar"><span></span><h2>Settings</h2><button class="done" id="dn">Done</button></div>';
+ var cur=idx(Date.now()),h='<div class="bar"><span></span><h2>Settings</h2><button class="done" id="dn">Done</button></div>';
  h+='<div class="list"><div class="row"><span>This month\u2019s limit</span><span class="v sub">'+money(limitFor(cur))+'</span></div>';
- if(S.pending)h+='<div class="row"><span class="l"><span>Next limit</span><span class="s">From '+LONG.format(monthStart(S.pending.month))+'</span></span><span class="v sub">'+money(S.pending.cents)+'</span></div>';
+ if(S.pending)h+='<div class="row"><span class="l"><span>Next limit</span><span class="s">From '+LONG.format(pStart(S.pending.period))+'</span></span><span class="v sub">'+money(S.pending.cents)+'</span></div>';
  h+='<button class="row" id="chg"><span>Change monthly limit</span><span class="sub">\u203A</span></button></div>';
  if(S.pending)h+='<div class="list" style="margin-top:16px"><button class="row del" id="cp" style="color:var(--accent)">Cancel pending change</button></div>';
- h+='<div class="foot">Changes take effect at the start of next month.</div>';
+ h+='<div class="foot">Changes take effect at your next reset.</div>';
  if(keep===true&&sheet==="settings"){document.getElementById("sheet").innerHTML=h}else show(h,"settings");
  document.getElementById("dn").onclick=close;document.getElementById("chg").onclick=openChange;
  var cp=document.getElementById("cp");if(cp)cp.onclick=function(){S.pending=null;save();openSettings(true)}}
 
 function openChange(){
- show(amountSheet("Change limit","Back","Review","","This applies from "+LONG.format(monthStart(nextYm(ym(new Date()))))+". It won\u2019t change this month\u2019s allowance."),"change");
+ show(amountSheet("Change limit","Back","Review","","This applies from "+LONG.format(pStart(idx(Date.now())+1))+". It won\u2019t change this month\u2019s allowance."),"change");
  document.getElementById("cx").onclick=function(){openSettings()};
  wire(function(c){confirmChange(c)})}
 
 function hideAlert(){document.getElementById("alert").classList.remove("on")}
 function confirmChange(c){
- var nm=nextYm(ym(new Date())),a=document.getElementById("alert");
- a.innerHTML='<div class="t"><b>Change limit to '+money(c)+'?</b><p>Starting '+LONG.format(monthStart(nm))+', your monthly limit will be '+money(c)+'. This month stays the same.</p></div><div class="a"><button id="an">Cancel</button><button id="ay">Confirm</button></div>';
+ var nm=idx(Date.now())+1,a=document.getElementById("alert");
+ a.innerHTML='<div class="t"><b>Change limit to '+money(c)+'?</b><p>Starting '+LONG.format(pStart(nm))+', your monthly limit will be '+money(c)+'. This month stays the same.</p></div><div class="a"><button id="an">Cancel</button><button id="ay">Confirm</button></div>';
  a.classList.add("on");
  document.getElementById("an").onclick=hideAlert;
- document.getElementById("ay").onclick=function(){hideAlert();S.pending={month:nm,cents:c};save();openSettings()}}
+ document.getElementById("ay").onclick=function(){hideAlert();S.pending={period:nm,cents:c};save();openSettings()}}
 
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&!sheet)render()});
 window.addEventListener("focus",function(){if(!sheet)render()});
-setInterval(function(){if(!sheet&&ym(new Date())!==lastYm){render()}},30000);
-var lastYm=ym(new Date());
-var _r=render;render=function(){lastYm=ym(new Date());_r()};
+function nowIdx(){return S.setup?idx(Date.now()):-1}
+setInterval(function(){if(!sheet&&nowIdx()!==lastYm){render()}},30000);
+var lastYm=nowIdx();
+var _r=render;render=function(){lastYm=nowIdx();_r()};
 render();
 })();
 </script>
